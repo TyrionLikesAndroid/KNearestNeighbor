@@ -1,5 +1,6 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.util.Vector;
 
 public class KNNDataSet {
 
@@ -94,5 +95,61 @@ public class KNNDataSet {
 
             System.out.println("");
         }
+    }
+
+    public void splitValidationAndTestData(int trainingPercent, boolean randomFlag)
+    {
+        // Determine how many rows go into the training set and the test set
+        int trainingDataSize = NUM_DATA_ROWS * trainingPercent/100;
+        int testDataSize = NUM_DATA_ROWS - trainingDataSize;
+
+        System.out.println("Splitting data into training [" + trainingDataSize + "] and test[" +
+                testDataSize + "]");
+
+        // Create the memory for our split datasets
+        trainingData = new float[NUM_DATA_COLUMNS][trainingDataSize];
+        testData = new float[NUM_DATA_COLUMNS][testDataSize];
+
+        // Copy the data from the original data into the new data sets
+        for(int i = 0; i <= NUM_DATA_ROWS-1; i++)
+        {
+            for(int k = 0; k <= NUM_DATA_COLUMNS-1; k++)
+            {
+                if(i < trainingDataSize)
+                    trainingData[k][i] = originalDataSet[k][i];
+                else
+                    testData[k][i-trainingDataSize] = originalDataSet[k][i];
+            }
+        }
+    }
+
+    public int getTrainingDataSize()
+    {
+        return trainingData[0].length;
+    }
+
+    public int getTestDataSize()
+    {
+        return testData[0].length;
+    }
+
+    public Vector<Float> getTrainingDataRow(int rowId)
+    {
+        Vector<Float> out = new Vector<>();
+
+        for(int k = 0; k <= NUM_DATA_COLUMNS-1; k++)
+            out.add(k, trainingData[k][rowId]);
+
+        return out;
+    }
+
+    public Vector<Float> getTestDataRow(int rowId)
+    {
+        Vector<Float> out = new Vector<>();
+
+        for(int k = 0; k <= NUM_DATA_COLUMNS-1; k++)
+            out.add(k, testData[k][rowId]);
+
+        return out;
     }
 }
