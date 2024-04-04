@@ -1,16 +1,19 @@
 import java.io.BufferedReader;
 import java.io.FileReader;
+import java.util.Collections;
+import java.util.Iterator;
+import java.util.LinkedList;
 import java.util.Vector;
 
 public class KNNDataSet {
 
-    static final String DELIMETER = ",";
-    static final int NUM_DATA_ROWS = 613;
-    static final int NUM_DATA_COLUMNS = 31;
-    final String dataFilePath;
-    float [][] originalDataSet;
-    float [][] trainingData;
-    float [][] testData;
+    static final String DELIMETER = ",";    // Comma delimeter for the CSV file
+    static final int NUM_DATA_ROWS = 613;   // Total number of CSV rows
+    static final int NUM_DATA_COLUMNS = 31; // Total number of CSV columns
+    final String dataFilePath;      // Path to our CSV filie
+    float [][] originalDataSet;     // Data member for our original dataset
+    float [][] trainingData;        // Data member for our training data
+    float [][] testData;            // Data member for our test data
 
     public KNNDataSet(String dataFilePath)
     {
@@ -18,6 +21,8 @@ public class KNNDataSet {
         originalDataSet = new float[NUM_DATA_COLUMNS][NUM_DATA_ROWS];
     }
 
+    // Function to load our CSV file and parse the lines by the comma delimiter.  We take the parsed value
+    // and stuff it into our data set attribute
     public boolean load()
     {
         boolean out = true;
@@ -37,6 +42,8 @@ public class KNNDataSet {
 
                 i++;
             }
+
+            br.close();
         }
         catch(Exception e)
         {
@@ -52,7 +59,6 @@ public class KNNDataSet {
         // Normalize the code in place, there is really no reason to keep the original data.
         // Loop through each column and find the mean/min/max, then use the values to normalize
         // each row in that column
-
         for(int j = 0; j <= NUM_DATA_COLUMNS-2; j++)  // Don't normalize the label column
         {
             float average = 0.0f;
@@ -60,7 +66,7 @@ public class KNNDataSet {
             float min = 99999999.0f;
             float max = 0.0f;
 
-            // This is the math loop where we calculate average, min, max for the column
+            // This is the math loop where we calculate average, min, max for the focal column
             for (int i = 0; i <= NUM_DATA_ROWS-1; i++) {
                 float value = originalDataSet[j][i];
                 sum += value;
@@ -74,7 +80,7 @@ public class KNNDataSet {
             //System.out.println("Column " + j + ": sum[" + sum + "] average[" + average + "] + " +
             //        "min[" + min + "] max[" + max + "]");
 
-            // This is the normalize loop where we normalize the data in place
+            // This is the normalize loop where we normalize the data in place for the focal column
             for (int i = 0; i <= NUM_DATA_ROWS-1; i++)
             {
                 float value = originalDataSet[j][i];
@@ -85,6 +91,7 @@ public class KNNDataSet {
 
     public void printDataSet()
     {
+        // Helper function to visualize the data that has been loaded into our data set member
         for(int i = 0; i <= NUM_DATA_ROWS-1; i++)
         {
             System.out.println("Line " + i + ":");
@@ -93,7 +100,7 @@ public class KNNDataSet {
             for (int j = 0; j <= NUM_DATA_COLUMNS-1; j++)
                 System.out.print(originalDataSet[j][i] + ",");
 
-            System.out.println("");
+            System.out.println();
         }
     }
 
@@ -106,19 +113,30 @@ public class KNNDataSet {
         System.out.println("Splitting data into training [" + trainingDataSize + "] and test[" +
                 testDataSize + "]");
 
-        // Create the memory for our split datasets
+        // Create the arrays in memory for our split datasets
         trainingData = new float[NUM_DATA_COLUMNS][trainingDataSize];
         testData = new float[NUM_DATA_COLUMNS][testDataSize];
+
+        // Create a linked list with all the data keys and shuffle if randomFlag is true
+        LinkedList<Integer> indexList = new LinkedList<>();
+        for(int i = 0; i <= NUM_DATA_ROWS-1; i++)
+            indexList.add(i);
+        if(randomFlag)
+            Collections.shuffle(indexList);
+
+        // Create an iterator for the indexList
+        Iterator<Integer> indexIter = indexList.iterator();
 
         // Copy the data from the original data into the new data sets
         for(int i = 0; i <= NUM_DATA_ROWS-1; i++)
         {
+            int originalRow = indexIter.next();
             for(int k = 0; k <= NUM_DATA_COLUMNS-1; k++)
             {
                 if(i < trainingDataSize)
-                    trainingData[k][i] = originalDataSet[k][i];
+                    trainingData[k][i] = originalDataSet[k][originalRow];
                 else
-                    testData[k][i-trainingDataSize] = originalDataSet[k][i];
+                    testData[k][i-trainingDataSize] = originalDataSet[k][originalRow];
             }
         }
     }

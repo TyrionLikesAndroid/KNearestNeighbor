@@ -1,18 +1,20 @@
+import java.text.DecimalFormat;
 import java.util.*;
 
 public class KNNClassifier {
 
-    public static final float BENIGN = -1.0f;
-    public static final float MALIGNANT = 1.0f;
-    public static final int LABEL_INDEX = 30;
-    KNNDataSet dataSet;
-    HashMap<Integer, TreeSet<AbstractMap.SimpleEntry<Integer,Float>>> distanceCalcs;
+    public static final float BENIGN = -1.0f;   // constant for benign value
+    public static final float MALIGNANT = 1.0f; // constant for malignant value
+    public static final int LABEL_INDEX = 30;   // constant for the position of the label in the CSV file
+    KNNDataSet dataSet; // Our dataset
+    HashMap<Integer, TreeSet<AbstractMap.SimpleEntry<Integer,Float>>> distanceCalcs;    // Our distance measurements
 
-    class KNNDistanceCompare implements Comparator<AbstractMap.SimpleEntry<Integer,Float>> {
+    // Comparator for the tree so that we will sort the lowest cost heuristics to the top
+    static class KNNDistanceCompare implements Comparator<AbstractMap.SimpleEntry<Integer,Float>> {
 
         public int compare(AbstractMap.SimpleEntry<Integer,Float> a, AbstractMap.SimpleEntry<Integer,Float> b)
         {
-            if(a.getValue() == b.getValue())
+            if(Objects.equals(a.getValue(), b.getValue()))
                 return 0;
 
             // Sort the lowest cost heuristics to the top
@@ -29,9 +31,12 @@ public class KNNClassifier {
     public void measureTestData()
     {
         // Loop through the test data and make Euclidean distance measurements against all
-        // of our training data
+        // of our training data.  We will do all the distance math one time, then use it repeatedly for different
+        // values of K in the test harness.
         for(int i = 0; i < dataSet.getTestDataSize(); i++)
         {
+            // Grab a row of test data and create a tree set where we will hold the calculated distances from this
+            // test row to every training row.
             Vector<Float> testRow = dataSet.getTestDataRow(i);
             TreeSet<AbstractMap.SimpleEntry<Integer,Float>> singleRowResults = new TreeSet<>(new KNNDistanceCompare());
 
@@ -52,6 +57,7 @@ public class KNNClassifier {
     {
         float distanceSum = 0.0f;
 
+        // This is our distance function.  Square and sum the delta from each column, then get the total square root below
         for(int i = 0; i < KNNDataSet.NUM_DATA_COLUMNS-1; i++)
             distanceSum += Math.pow(testRow.get(i)-trainingRow.get(i),2);
 
@@ -60,6 +66,7 @@ public class KNNClassifier {
 
     public void dumpNearestNeighbors(int testRowId)
     {
+        // A helper function to confirm that our tree is ordering correctly based on the heuristic
         Iterator<AbstractMap.SimpleEntry<Integer,Float>> iter = distanceCalcs.get(testRowId).iterator();
         while(iter.hasNext())
         {
@@ -70,10 +77,13 @@ public class KNNClassifier {
 
     public void classifyTestSet(int kValue)
     {
-        System.out.println("Classifying Test Data for K[" + kValue + "]");
+        // This is our main classification function.  We iterate through the test data, get the test label and
+        // the calculated label, then collect our metrics for the confusion matrix and accuracy.
 
-        int matchCount = 0;
-        int mismatchCount = 0;
+        System.out.println("\nClassifying Test Data for K[" + kValue + "]");
+
+        float matchCount = 0;
+        float mismatchCount = 0;
         int negativeMatchCount = 0;
         int positiveMatchCount = 0;
         int falsePositiveCount = 0;
@@ -87,6 +97,8 @@ public class KNNClassifier {
             // Calculate the KNN label for this test row
             float knnLabel = determineKNNLabel(i, kValue);
 
+            // Compare our calculated label with our test label.  Negative in this case is BENIGN and
+            // positive is MALIGNANT
             if(label == knnLabel)
             {
                 matchCount++;
@@ -105,9 +117,11 @@ public class KNNClassifier {
             }
         }
 
-        System.out.println("\nTest result K[" + kValue + "] match=" + matchCount + " mismatch=" + mismatchCount);
-        System.out.println("    truePositive=" + positiveMatchCount + " trueNegative=" + negativeMatchCount);
-        System.out.println("    falsePositive=" + falsePositiveCount + " falseNegative=" + falseNegativeCount);
+        DecimalFormat numberFormat = new DecimalFormat("#.00");
+        System.out.println("Test result K[" + kValue + "] match=" + matchCount + " mismatch=" + mismatchCount +
+            " accuracy=" + numberFormat.format(matchCount/(matchCount + mismatchCount)*100));
+        System.out.println("    truePositive=" + positiveMatchCount + " falsePositive=" + falsePositiveCount);
+        System.out.println("    falseNegative=" + falseNegativeCount + " trueNegative=" + negativeMatchCount);
     }
 
     public float determineKNNLabel(int testRowId, int kValue)
@@ -116,6 +130,8 @@ public class KNNClassifier {
         int benignCount = 0;
         int count = 1;
 
+        // Simply count the number of malignant neighbors versus the number of benign neighbors for our
+        // K total of nearest neighbors
         Iterator<AbstractMap.SimpleEntry<Integer,Float>> iter = distanceCalcs.get(testRowId).iterator();
         while(iter.hasNext() && (count <= kValue))
         {
