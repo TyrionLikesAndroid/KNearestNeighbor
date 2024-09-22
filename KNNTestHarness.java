@@ -20,7 +20,7 @@ public class KNNTestHarness {
 //        data.printDataSet();
 
         // Split up the training and test data
-        data.splitValidationAndTestData(70,false);
+        data.splitValidationAndTestData(70,true);
 
         // Create a data classifier with our data set and measure all of our test data.  This will calculate
         // the Euclidean distance for all of our test data points and save it in memory for classification.
