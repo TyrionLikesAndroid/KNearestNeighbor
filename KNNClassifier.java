@@ -61,7 +61,7 @@ public class KNNClassifier {
         for(int i = 0; i < KNNDataSet.NUM_DATA_COLUMNS-1; i++)
             distanceSum += Math.pow(testRow.get(i)-trainingRow.get(i),2);
 
-        return new AbstractMap.SimpleEntry<>(rowId, new Float(Math.sqrt(distanceSum)));
+        return new AbstractMap.SimpleEntry<>(rowId, (float) Math.sqrt(distanceSum));
     }
 
     public void dumpNearestNeighbors(int testRowId)
