@@ -41,6 +41,7 @@ public class KNNTestHarness {
         classifier.classifyTestSet(9);
 
         System.out.println("\nStarting CNN analysis\n");
+        data.measureTrainingData();
 
         // Condense the dataset for K=1 and confirm training equivalency
         boolean condenseComplete = false;
@@ -50,6 +51,13 @@ public class KNNTestHarness {
 
         classifier.measureCondensedTestData(data.getCondensedTrainingData());
         classifier.classifyTestSet(1);
+
+        // Condense the dataset for K=3 and confirm training equivalency
+        condenseComplete = false;
+        data.resetCondensedTrainingData();
+//        while(! condenseComplete)
+//            condenseComplete = data.condenseTrainingData(3);
+//        data.confirmCondensedEquivalency(3);
 
         //classifier.classifyTestSet(3, true);
         //data.condenseTrainingData(3);

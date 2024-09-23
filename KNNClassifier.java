@@ -10,7 +10,7 @@ public class KNNClassifier {
     HashMap<Integer, TreeSet<AbstractMap.SimpleEntry<Integer,Float>>> distanceCalcs;    // Our distance measurements
 
     // Comparator for the tree so that we will sort the lowest cost heuristics to the top
-    static class KNNDistanceCompare implements Comparator<AbstractMap.SimpleEntry<Integer,Float>> {
+    static public class KNNDistanceCompare implements Comparator<AbstractMap.SimpleEntry<Integer,Float>> {
 
         public int compare(AbstractMap.SimpleEntry<Integer,Float> a, AbstractMap.SimpleEntry<Integer,Float> b)
         {
@@ -83,7 +83,7 @@ public class KNNClassifier {
         }
     }
 
-    private AbstractMap.SimpleEntry<Integer,Float> calculateDistance(int rowId, Vector<Float>testRow, Vector<Float> trainingRow)
+    public static AbstractMap.SimpleEntry<Integer,Float> calculateDistance(int rowId, Vector<Float>testRow, Vector<Float> trainingRow)
     {
         float distanceSum = 0.0f;
 
@@ -125,7 +125,7 @@ public class KNNClassifier {
             float label = dataSet.getTestDataRow(i).get(LABEL_INDEX);
 
             // Calculate the KNN label for this test row
-            float knnLabel = determineKNNLabel(i, kValue);
+            float knnLabel = determineKNNLabel(i, kValue, distanceCalcs, dataSet);
 
             // Compare our calculated label with our test label.  Negative in this case is BENIGN and
             // positive is MALIGNANT
@@ -154,7 +154,8 @@ public class KNNClassifier {
         System.out.println("    falseNegative=" + falseNegativeCount + " trueNegative=" + negativeMatchCount);
     }
 
-    public float determineKNNLabel(int testRowId, int kValue)
+    public static float determineKNNLabel(int testRowId, int kValue, HashMap<Integer,
+            TreeSet<AbstractMap.SimpleEntry<Integer,Float>>> distances, KNNDataSet data)
     {
         int malignantCount = 0;
         int benignCount = 0;
@@ -162,14 +163,14 @@ public class KNNClassifier {
 
         // Simply count the number of malignant neighbors versus the number of benign neighbors for our
         // K total of nearest neighbors
-        Iterator<AbstractMap.SimpleEntry<Integer, Float>> iter = distanceCalcs.get(testRowId).iterator();
+        Iterator<AbstractMap.SimpleEntry<Integer, Float>> iter = distances.get(testRowId).iterator();
         while (iter.hasNext() && (count <= kValue))
         {
             AbstractMap.SimpleEntry<Integer, Float> entry = iter.next();
             count++;
 
             // Count the labels for the training entries
-            float trainingLabel = dataSet.getTrainingDataRow(entry.getKey()).get(LABEL_INDEX);
+            float trainingLabel = data.getTrainingDataRow(entry.getKey()).get(LABEL_INDEX);
             if (trainingLabel == MALIGNANT)
                 malignantCount++;
             else if (trainingLabel == BENIGN)

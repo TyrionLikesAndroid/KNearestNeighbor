@@ -11,15 +11,19 @@ public class KNNDataSet {
     float [][] originalDataSet;     // Data member for our original dataset
     float [][] trainingData;        // Data member for our training data
     float [][] testData;            // Data member for our test data
+    HashMap<Integer, TreeSet<AbstractMap.SimpleEntry<Integer,Float>>> distanceCalcs;    // Training distances
+    HashMap<Integer, TreeSet<AbstractMap.SimpleEntry<Integer,Float>>> condensedDistanceCalcs;    // Condensed distances
 
     LinkedList<Integer> condensedTrainingData;  // Data member for training data
 
     public KNNDataSet(String dataFilePath)
     {
         this.dataFilePath = dataFilePath;
-        originalDataSet = new float[NUM_DATA_COLUMNS][NUM_DATA_ROWS];
+        this.originalDataSet = new float[NUM_DATA_COLUMNS][NUM_DATA_ROWS];
 
-        condensedTrainingData = new LinkedList<>();
+        this.condensedTrainingData = new LinkedList<>();
+        this.distanceCalcs = new HashMap<>();
+        this.condensedDistanceCalcs = new HashMap<>();
     }
 
     // Function to load our CSV file and parse the lines by the comma delimiter.  We take the parsed value
@@ -90,9 +94,66 @@ public class KNNDataSet {
         }
     }
 
+    public void resetCondensedTrainingData()
+    {
+        condensedTrainingData.clear();
+    }
+
+    public void measureTrainingData()
+    {
+        // Loop through the training data and make Euclidean distance measurements against all the other
+        // data points.  We will do all the distance math one time, then use it repeatedly for different
+        // values of K in the test harness.
+        for(int i = 0; i < getTrainingDataSize(); i++)
+        {
+            // Grab a row of training data and create a tree set where we will hold the calculated distances from this
+            // training row to every other training row.
+            Vector<Float> testRow = getTrainingDataRow(i);
+            TreeSet<AbstractMap.SimpleEntry<Integer,Float>> singleRowResults = new TreeSet<>(new KNNClassifier.KNNDistanceCompare());
+
+            // Measure the distance between this test row and every row in the training set
+            for(int j = 0; j < getTrainingDataSize(); j++)
+            {
+                if(i == j) continue;
+
+                Vector<Float> trainingRow = getTrainingDataRow(j);
+                AbstractMap.SimpleEntry<Integer,Float> distance = KNNClassifier.calculateDistance(j, testRow, trainingRow);
+                singleRowResults.add(distance);
+            }
+
+            // Assign the priority queue to the class level dictionary
+            distanceCalcs.put(i,singleRowResults);
+        }
+    }
+
+    public void measureCondensedTrainingData()
+    {
+        for(int i = 0; i < getTrainingDataSize(); i++)
+        {
+            // Grab a row of training data and create a tree set where we will hold the calculated distances from this
+            // training row to every other training row.
+            Vector<Float> testRow = getTrainingDataRow(i);
+            TreeSet<AbstractMap.SimpleEntry<Integer, Float>> singleRowResults = new TreeSet<>(new KNNClassifier.KNNDistanceCompare());
+
+            Iterator<Integer> condensedIter = condensedTrainingData.iterator();
+            while(condensedIter.hasNext())
+            {
+                int focalRowId = condensedIter.next();
+                if(focalRowId == i) continue;
+
+                Vector<Float> trainingRow = getTrainingDataRow(focalRowId);
+                AbstractMap.SimpleEntry<Integer,Float> distance = KNNClassifier.calculateDistance(focalRowId, testRow, trainingRow);
+                singleRowResults.add(distance);
+            }
+
+            // Assign the priority queue to the class level dictionary
+            condensedDistanceCalcs.put(i,singleRowResults);
+        }
+    }
+
     public boolean condenseTrainingData(int kValue)
     {
-        // Initialize our training data size and condensed data list if this is the first iteration
+        // Initialize our condensed data size and list if this is the first iteration
         int condensedDataSize = condensedTrainingData.size();
         if(condensedDataSize == 0)
         {
@@ -103,6 +164,8 @@ public class KNNDataSet {
                 condensedTrainingData.add(randomRow);
                 System.out.println("Seeding condensed list with [" + randomRow + "]");
             }
+
+            measureCondensedTrainingData();
         }
 
         // Build a local training data index to work with
@@ -115,41 +178,13 @@ public class KNNDataSet {
         while(trainingIter.hasNext())
         {
             int focalRowId = trainingIter.next();
-            Vector<Float> focalRow = getTrainingDataRow(focalRowId);
 
-            // Determine the KNN label for the focal row versus the full training set
-            Iterator<Integer> fullTrainingIter = trainingIndex.iterator();
-            float closest = 9999.0f;
-            int closestTrainingIndex = 0;
-            float fullTrainingClassifier = KNNClassifier.BENIGN;
-            while(fullTrainingIter.hasNext())
-            {
-                // Don't compare a row against itself
-                int fullTrainingRowId = fullTrainingIter.next();
-                if(fullTrainingRowId == focalRowId)
-                    continue;
+            // Calculate the KNN label for this training row relative to its proximity to other training data
+            float fullTrainingClassifier = KNNClassifier.determineKNNLabel(focalRowId, kValue, distanceCalcs, this);
+            int closestTrainingIndex = distanceCalcs.get(focalRowId).first().getKey();
 
-                // Get the training row for this iteration
-                Vector<Float> fullTrainingRow = getTrainingDataRow(fullTrainingRowId);
-
-                // This is our distance function.  Square and sum the delta from each column
-                float testDistance = 0.0f;
-                for(int i = 0; i < KNNDataSet.NUM_DATA_COLUMNS-1; i++)
-                    testDistance += Math.pow(fullTrainingRow.get(i) - focalRow.get(i),2);
-
-                // Determine if this is our closest neighbor, if so get the label from it
-                if(testDistance < closest)
-                {
-                    fullTrainingClassifier = fullTrainingRow.get(KNNClassifier.LABEL_INDEX);
-                    closest = testDistance;
-                    closestTrainingIndex = fullTrainingRowId;
-                    //System.out.println("Row [" + focalRowId + "] closest distance[" + closest + "] Full Training Label=" + fullTrainingClassifier);
-                }
-            }
-
-            // Determine the KNN label for the focal row versus the condensed training set
+            // Determine the KNN label for this training row versus the condensed training set
             // Iterate through our index representation of the remaining training set
-            closest = 9999.0f;
             float condensedTrainingClassifier = KNNClassifier.BENIGN;
             Iterator<Integer> iterCondensed = condensedTrainingData.iterator();
             while(iterCondensed.hasNext())
@@ -159,21 +194,7 @@ public class KNNDataSet {
                 if(condensedRowId == focalRowId)
                     continue;
 
-                // Get the condensed row for this iteration
-                Vector<Float> condensedRow = getTrainingDataRow(condensedRowId);
-
-                // This is our distance function.  Square and sum the delta from each column
-                float testDistance = 0.0f;
-                for(int i = 0; i < KNNDataSet.NUM_DATA_COLUMNS-1; i++)
-                    testDistance += Math.pow(condensedRow.get(i) - focalRow.get(i),2);
-
-                // Determine if this is our closest neighbor, if so get the label from it
-                if(testDistance < closest)
-                {
-                    condensedTrainingClassifier = condensedRow.get(KNNClassifier.LABEL_INDEX);
-                    closest = testDistance;
-                    //System.out.println("Row [" + focalRowId + "] closest distance[" + closest + "] Condensed Training Label=" + condensedTrainingClassifier);
-                }
+                condensedTrainingClassifier = KNNClassifier.determineKNNLabel(focalRowId, kValue, condensedDistanceCalcs, this);
             }
 
             // Determine if the condensed label matches the training label
@@ -181,6 +202,7 @@ public class KNNDataSet {
             {
                 // We need to add this point to our condensed test set
                 condensedTrainingData.add(closestTrainingIndex);
+                measureCondensedTrainingData();
                 System.out.println("MISMATCH: Add row [" + closestTrainingIndex + "] to condensed list to fix row [" + focalRowId + "]");
             }
         }
@@ -204,39 +226,13 @@ public class KNNDataSet {
         while(trainingIter.hasNext())
         {
             int focalRowId = trainingIter.next();
-            Vector<Float> focalRow = getTrainingDataRow(focalRowId);
 
-            // Determine the KNN label for the focal row versus the full training set
-            Iterator<Integer> iter2 = trainingIndex.iterator();
-            float closest = 9999.0f;
-            float fullTrainingClassifier = KNNClassifier.BENIGN;
-            while(iter2.hasNext())
-            {
-                // Don't compare a row against itself
-                int testRowId = iter2.next();
-                if(testRowId == focalRowId)
-                    continue;
+            // Calculate the KNN label for this training row relative to its proximity to other training data
+            float fullTrainingClassifier = KNNClassifier.determineKNNLabel(focalRowId, kValue, distanceCalcs, this);
+            int closestTrainingIndex = distanceCalcs.get(focalRowId).first().getKey();
 
-                // Get the training row for this iteration
-                Vector<Float> testRow = getTrainingDataRow(testRowId);
-
-                // This is our distance function.  Square and sum the delta from each column
-                float testDistance = 0.0f;
-                for(int i = 0; i < KNNDataSet.NUM_DATA_COLUMNS-1; i++)
-                    testDistance += Math.pow(testRow.get(i) - focalRow.get(i),2);
-
-                // Determine if this is our closest neighbor, if so get the label from it
-                if(testDistance < closest)
-                {
-                    fullTrainingClassifier = testRow.get(KNNClassifier.LABEL_INDEX);
-                    closest = testDistance;
-                    //System.out.println("Row [" + trainingRowId + "] closest distance[" + closest + "] Full Training Label=" + fullTrainingClassifier);
-                }
-            }
-
-            // Determine the KNN label for the focal row versus the condensed training set
+            // Determine the KNN label for this training row versus the condensed training set
             // Iterate through our index representation of the remaining training set
-            closest = 9999.0f;
             float condensedTrainingClassifier = KNNClassifier.BENIGN;
             Iterator<Integer> iterCondensed = condensedTrainingData.iterator();
             while(iterCondensed.hasNext())
@@ -246,26 +242,13 @@ public class KNNDataSet {
                 if(condensedRowId == focalRowId)
                     continue;
 
-                Vector<Float> condensedRow = getTrainingDataRow(condensedRowId);
-
-                // This is our distance function.  Square and sum the delta from each column
-                float testDistance = 0.0f;
-                for(int i = 0; i < KNNDataSet.NUM_DATA_COLUMNS-1; i++)
-                    testDistance += Math.pow(condensedRow.get(i) - focalRow.get(i),2);
-
-                // Determine if this is our closest neighbor, if so get the label from it
-                if(testDistance < closest)
-                {
-                    condensedTrainingClassifier = condensedRow.get(KNNClassifier.LABEL_INDEX);
-                    closest = testDistance;
-                    //System.out.println("Row [" + trainingRowId + "] closest distance[" + closest + "] Condensed Training Label=" + condensedTrainingClassifier);
-                }
+                condensedTrainingClassifier = KNNClassifier.determineKNNLabel(focalRowId, kValue, condensedDistanceCalcs, this);
             }
 
             // Determine if the condensed label matches the training label
             if(condensedTrainingClassifier != fullTrainingClassifier)
             {
-                System.out.println("MISMATCH: row [" + focalRow + "] is not training equivalent");
+                System.out.println("MISMATCH: row [" + focalRowId + "] is not training equivalent");
                 return;
             }
         }
