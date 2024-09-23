@@ -266,6 +266,7 @@ public class KNNDataSet {
             if(condensedTrainingClassifier != fullTrainingClassifier)
             {
                 System.out.println("MISMATCH: row [" + focalRow + "] is not training equivalent");
+                return;
             }
         }
 
