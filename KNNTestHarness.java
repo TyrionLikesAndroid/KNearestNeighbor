@@ -32,10 +32,24 @@ public class KNNTestHarness {
 //        classifier.dumpNearestNeighbors(1);
 
         // Classify the test data with our different K values
-        classifier.classifyTestSet(1);
-        classifier.classifyTestSet(3);
-        classifier.classifyTestSet(5);
-        classifier.classifyTestSet(7);
-        classifier.classifyTestSet(9);
+        boolean condenseComplete = false;
+        classifier.classifyTestSet(1, false);
+        while(! condenseComplete)
+            condenseComplete = data.condenseTrainingData(1);
+
+        data.confirmCondensedEquivalency(1);
+        classifier.classifyTestSet(1, true);
+
+        classifier.classifyTestSet(3, false);
+        //data.condenseTrainingData(3);
+
+        classifier.classifyTestSet(5, false);
+        //data.condenseTrainingData(5);
+
+        classifier.classifyTestSet(7, false);
+        //data.condenseTrainingData(7);
+
+        classifier.classifyTestSet(9, false);
+        //data.condenseTrainingData(9);
     }
 }

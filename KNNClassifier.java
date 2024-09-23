@@ -75,7 +75,7 @@ public class KNNClassifier {
         }
     }
 
-    public void classifyTestSet(int kValue)
+    public void classifyTestSet(int kValue, boolean condensedFlag)
     {
         // This is our main classification function.  We iterate through the test data, get the test label and
         // the calculated label, then collect our metrics for the confusion matrix and accuracy.
@@ -95,7 +95,7 @@ public class KNNClassifier {
             float label = dataSet.getTestDataRow(i).get(LABEL_INDEX);
 
             // Calculate the KNN label for this test row
-            float knnLabel = determineKNNLabel(i, kValue);
+            float knnLabel = determineKNNLabel(i, kValue, condensedFlag);
 
             // Compare our calculated label with our test label.  Negative in this case is BENIGN and
             // positive is MALIGNANT
@@ -124,28 +124,63 @@ public class KNNClassifier {
         System.out.println("    falseNegative=" + falseNegativeCount + " trueNegative=" + negativeMatchCount);
     }
 
-    public float determineKNNLabel(int testRowId, int kValue)
+    public float determineKNNLabel(int testRowId, int kValue, boolean condensedFlag)
     {
         int malignantCount = 0;
         int benignCount = 0;
         int count = 1;
 
-        // Simply count the number of malignant neighbors versus the number of benign neighbors for our
-        // K total of nearest neighbors
-        Iterator<AbstractMap.SimpleEntry<Integer,Float>> iter = distanceCalcs.get(testRowId).iterator();
-        while(iter.hasNext() && (count <= kValue))
+        if(condensedFlag)
         {
-            AbstractMap.SimpleEntry<Integer,Float> entry = iter.next();
-            count++;
+            LinkedList<Integer> condensedIndex = dataSet.getCondensedTrainingData();
+            Iterator<Integer> condensedIter = condensedIndex.iterator();
 
-            // Count the labels for the training entries
-            float trainingLabel = dataSet.getTrainingDataRow(entry.getKey()).get(LABEL_INDEX);
-            if(trainingLabel == MALIGNANT)
-                malignantCount++;
-            else if(trainingLabel == BENIGN)
-                benignCount++;
-            else
-                System.out.println("ERROR: Label with unexpected value");
+            Vector<Float> testRow = dataSet.getTestDataRow(testRowId);
+
+            // Iterate through our index representation of the remaining training set
+            float closest = 9999.0f;
+            float condensedTrainingClassifier = KNNClassifier.BENIGN;
+
+            while(condensedIter.hasNext())
+            {
+                // Get the condensed row for this iteration
+                int condensedRowId = condensedIter.next();
+                Vector<Float> condensedRow = dataSet.getTrainingDataRow(condensedRowId);
+
+                // This is our distance function.  Square and sum the delta from each column
+                float testDistance = 0.0f;
+                for(int i = 0; i < KNNDataSet.NUM_DATA_COLUMNS-1; i++)
+                    testDistance += Math.pow(condensedRow.get(i) - testRow.get(i),2);
+
+                // Determine if this is our closest neighbor, if so get the label from it
+                if(testDistance < closest)
+                {
+                    condensedTrainingClassifier = condensedRow.get(KNNClassifier.LABEL_INDEX);
+                    closest = testDistance;
+                    //System.out.println("Row [" + focalRowId + "] closest distance[" + closest + "] Condensed Training Label=" + condensedTrainingClassifier);
+                }
+            }
+
+            return condensedTrainingClassifier;
+        }
+        else
+        {
+            // Simply count the number of malignant neighbors versus the number of benign neighbors for our
+            // K total of nearest neighbors
+            Iterator<AbstractMap.SimpleEntry<Integer, Float>> iter = distanceCalcs.get(testRowId).iterator();
+            while (iter.hasNext() && (count <= kValue)) {
+                AbstractMap.SimpleEntry<Integer, Float> entry = iter.next();
+                count++;
+
+                // Count the labels for the training entries
+                float trainingLabel = dataSet.getTrainingDataRow(entry.getKey()).get(LABEL_INDEX);
+                if (trainingLabel == MALIGNANT)
+                    malignantCount++;
+                else if (trainingLabel == BENIGN)
+                    benignCount++;
+                else
+                    System.out.println("ERROR: Label with unexpected value");
+            }
         }
 
         if(malignantCount > benignCount)
