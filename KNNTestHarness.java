@@ -29,46 +29,35 @@ public class KNNTestHarness {
         KNNClassifier classifier = new KNNClassifier(data);
         classifier.measureTestData();
 
-        // Print our classifier data for test purposes
-//        classifier.dumpNearestNeighbors(0);
-//        classifier.dumpNearestNeighbors(1);
-
-        // Classify the test data with our different K values
+        // Run the KNN tests with our different K values
         classifier.classifyTestSet(1);
         classifier.classifyTestSet(3);
         classifier.classifyTestSet(5);
         classifier.classifyTestSet(7);
         classifier.classifyTestSet(9);
 
-        System.out.println("\nStarting CNN analysis\n");
+        System.out.println("\nStarting CNN analysis");
         data.measureTrainingData();
 
-        // Condense the dataset for K=1 and confirm training equivalency
+        // Run the CNN tests with our different K values
+        testCondensedNearestNeighbor(1, data, classifier);
+        testCondensedNearestNeighbor(3, data, classifier);
+        testCondensedNearestNeighbor(5, data, classifier);
+        testCondensedNearestNeighbor(7, data, classifier);
+        testCondensedNearestNeighbor(9, data, classifier);
+    }
+
+    static void testCondensedNearestNeighbor(int kValue, KNNDataSet data, KNNClassifier classifier)
+    {
+        System.out.println();
+        data.resetCondensedTrainingData();
+
         boolean condenseComplete = false;
         while(! condenseComplete)
-            condenseComplete = data.condenseTrainingData(1);
-        data.confirmCondensedEquivalency(1);
+            condenseComplete = data.condenseTrainingData(kValue);
+        data.confirmCondensedEquivalency(kValue);
 
         classifier.measureCondensedTestData(data.getCondensedTrainingData());
-        classifier.classifyTestSet(1);
-
-        // Condense the dataset for K=3 and confirm training equivalency
-        condenseComplete = false;
-        data.resetCondensedTrainingData();
-//        while(! condenseComplete)
-//            condenseComplete = data.condenseTrainingData(3);
-//        data.confirmCondensedEquivalency(3);
-
-        //classifier.classifyTestSet(3, true);
-        //data.condenseTrainingData(3);
-
-        //classifier.classifyTestSet(5, true);
-        //data.condenseTrainingData(5);
-
-        //classifier.classifyTestSet(7, true);
-        //data.condenseTrainingData(7);
-
-        //classifier.classifyTestSet(9, true);
-        //data.condenseTrainingData(9);
+        classifier.classifyTestSet(kValue);
     }
 }

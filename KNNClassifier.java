@@ -53,7 +53,7 @@ public class KNNClassifier {
         }
     }
 
-    public void measureCondensedTestData(LinkedList<Integer> condensedList)
+    public void measureCondensedTestData(HashSet<Integer> condensedList)
     {
         // Clear out the distance calcs from any previous runs
         distanceCalcs.clear();

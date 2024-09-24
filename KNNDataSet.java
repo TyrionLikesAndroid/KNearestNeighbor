@@ -14,14 +14,14 @@ public class KNNDataSet {
     HashMap<Integer, TreeSet<AbstractMap.SimpleEntry<Integer,Float>>> distanceCalcs;    // Training distances
     HashMap<Integer, TreeSet<AbstractMap.SimpleEntry<Integer,Float>>> condensedDistanceCalcs;    // Condensed distances
 
-    LinkedList<Integer> condensedTrainingData;  // Data member for training data
+    HashSet<Integer> condensedTrainingData;  // Data member for training data
 
     public KNNDataSet(String dataFilePath)
     {
         this.dataFilePath = dataFilePath;
         this.originalDataSet = new float[NUM_DATA_COLUMNS][NUM_DATA_ROWS];
 
-        this.condensedTrainingData = new LinkedList<>();
+        this.condensedTrainingData = new HashSet<>();
         this.distanceCalcs = new HashMap<>();
         this.condensedDistanceCalcs = new HashMap<>();
     }
@@ -162,7 +162,7 @@ public class KNNDataSet {
             {
                 randomRow = (int) (Math.random() * getTrainingDataSize());
                 condensedTrainingData.add(randomRow);
-                System.out.println("Seeding condensed list with [" + randomRow + "]");
+                System.out.println("K[" + kValue + "] Seeding condensed list with [" + randomRow + "]");
             }
 
             measureCondensedTrainingData();
@@ -177,11 +177,26 @@ public class KNNDataSet {
         Iterator<Integer> trainingIter = trainingIndex.iterator();
         while(trainingIter.hasNext())
         {
+            int closestTrainingIndex = -1;
             int focalRowId = trainingIter.next();
 
             // Calculate the KNN label for this training row relative to its proximity to other training data
             float fullTrainingClassifier = KNNClassifier.determineKNNLabel(focalRowId, kValue, distanceCalcs, this);
-            int closestTrainingIndex = distanceCalcs.get(focalRowId).first().getKey();
+
+            // Pick a point to add to our condensed list if needed.  It needs to be the closest point that
+            // isn't already in the condensed list
+            Iterator<AbstractMap.SimpleEntry<Integer,Float>> iter = distanceCalcs.get(focalRowId).iterator();
+            while(iter.hasNext())
+            {
+                AbstractMap.SimpleEntry<Integer,Float> entry = iter.next();
+                int closeRowId = entry.getKey();
+
+                if(! condensedTrainingData.contains(closeRowId))
+                {
+                    closestTrainingIndex = closeRowId;
+                    break;
+                }
+            }
 
             // Determine the KNN label for this training row versus the condensed training set
             // Iterate through our index representation of the remaining training set
@@ -203,18 +218,18 @@ public class KNNDataSet {
                 // We need to add this point to our condensed test set
                 condensedTrainingData.add(closestTrainingIndex);
                 measureCondensedTrainingData();
-                System.out.println("MISMATCH: Add row [" + closestTrainingIndex + "] to condensed list to fix row [" + focalRowId + "]");
+                //System.out.println("MISMATCH: Add row [" + closestTrainingIndex + "] to condensed list to fix row [" + focalRowId + "]");
             }
         }
 
-        System.out.println("Condensed training data size[" + condensedTrainingData.size() + "]");
+        //System.out.println("Condensed training data size[" + condensedTrainingData.size() + "]");
 
         return (condensedDataSize == condensedTrainingData.size());
     }
 
     public void confirmCondensedEquivalency(int kValue)
     {
-        System.out.println("Confirming training equivalency with condense set size [" + condensedTrainingData.size() + "]");
+        System.out.println("K["+ kValue + "] Confirming training equivalency with condense set size [" + condensedTrainingData.size() + "]");
 
         // Build a local training data index to work with
         LinkedList<Integer> trainingIndex = new LinkedList<>();
@@ -253,7 +268,7 @@ public class KNNDataSet {
             }
         }
 
-        System.out.println("Condensed points are training equivalent");
+        System.out.println("K[" + kValue + "] Condensed points are training equivalent");
     }
 
     public void printDataSet()
@@ -318,7 +333,7 @@ public class KNNDataSet {
         return testData[0].length;
     }
 
-    public LinkedList<Integer> getCondensedTrainingData()
+    public HashSet<Integer> getCondensedTrainingData()
     {
         return condensedTrainingData;
     }
