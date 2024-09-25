@@ -62,34 +62,29 @@ public class KNNDataSet {
     public void normalize()
     {
         // Normalize the code in place, there is really no reason to keep the original data.
-        // Loop through each column and find the mean/min/max, then use the values to normalize
+        // Loop through each column and find the min/max, then use the values to normalize
         // each row in that column
         for(int j = 0; j <= NUM_DATA_COLUMNS-2; j++)  // Don't normalize the label column
         {
-            float average = 0.0f;
-            float sum = 0.0f;
             float min = 99999999.0f;
             float max = 0.0f;
 
             // This is the math loop where we calculate average, min, max for the focal column
             for (int i = 0; i <= NUM_DATA_ROWS-1; i++) {
                 float value = originalDataSet[j][i];
-                sum += value;
                 if (value > max)
                     max = value;
                 if (value < min)
                     min = value;
             }
 
-            average = sum / NUM_DATA_ROWS;
-            //System.out.println("Column " + j + ": sum[" + sum + "] average[" + average + "] + " +
-            //        "min[" + min + "] max[" + max + "]");
+            //System.out.println("Column " + j + ": min[" + min + "] max[" + max + "]");
 
             // This is the normalize loop where we normalize the data in place for the focal column
             for (int i = 0; i <= NUM_DATA_ROWS-1; i++)
             {
                 float value = originalDataSet[j][i];
-                originalDataSet[j][i] = (value - average) / (max - min);
+                originalDataSet[j][i] = (value - min) / (max - min);
             }
         }
     }
@@ -151,6 +146,25 @@ public class KNNDataSet {
         }
     }
 
+    public void addCondensedTrainingDataRow(int rowId)
+    {
+        for(int i = 0; i < getTrainingDataSize(); i++)
+        {
+            if(rowId == i) continue;
+
+            // Get the existing tree for this training data row
+            Vector<Float> testRow = getTrainingDataRow(i);
+            TreeSet<AbstractMap.SimpleEntry<Integer, Float>> singleRowResults = condensedDistanceCalcs.get(i);
+
+            // Get the row for the new condensed point we want to add and calculate the distance
+            Vector<Float> trainingRow = getTrainingDataRow(rowId);
+            AbstractMap.SimpleEntry<Integer,Float> distance = KNNClassifier.calculateDistance(rowId, testRow, trainingRow);
+
+            // Add the condensed point to the existing tree
+            singleRowResults.add(distance);
+        }
+    }
+
     public boolean condenseTrainingData(int kValue)
     {
         // Initialize our condensed data size and list if this is the first iteration
@@ -162,7 +176,7 @@ public class KNNDataSet {
             {
                 randomRow = (int) (Math.random() * getTrainingDataSize());
                 condensedTrainingData.add(randomRow);
-                System.out.println("K[" + kValue + "] Seeding condensed list with [" + randomRow + "]");
+                //System.out.println("K[" + kValue + "] Seeding condensed list with [" + randomRow + "]");
             }
 
             measureCondensedTrainingData();
@@ -217,7 +231,7 @@ public class KNNDataSet {
             {
                 // We need to add this point to our condensed test set
                 condensedTrainingData.add(closestTrainingIndex);
-                measureCondensedTrainingData();
+                addCondensedTrainingDataRow(closestTrainingIndex);
                 //System.out.println("MISMATCH: Add row [" + closestTrainingIndex + "] to condensed list to fix row [" + focalRowId + "]");
             }
         }
@@ -244,7 +258,6 @@ public class KNNDataSet {
 
             // Calculate the KNN label for this training row relative to its proximity to other training data
             float fullTrainingClassifier = KNNClassifier.determineKNNLabel(focalRowId, kValue, distanceCalcs, this);
-            int closestTrainingIndex = distanceCalcs.get(focalRowId).first().getKey();
 
             // Determine the KNN label for this training row versus the condensed training set
             // Iterate through our index representation of the remaining training set
@@ -286,7 +299,7 @@ public class KNNDataSet {
         }
     }
 
-    public void splitValidationAndTestData(int trainingPercent, boolean randomFlag)
+    public void splitValidationAndTestData(int trainingPercent, Random seed)
     {
         // Determine how many rows go into the training set and the test set
         int trainingDataSize = NUM_DATA_ROWS * trainingPercent/100;
@@ -303,8 +316,8 @@ public class KNNDataSet {
         LinkedList<Integer> indexList = new LinkedList<>();
         for(int i = 0; i <= NUM_DATA_ROWS-1; i++)
             indexList.add(i);
-        if(randomFlag)
-            Collections.shuffle(indexList);
+        if(seed != null)
+            Collections.shuffle(indexList, seed);
 
         // Create an iterator for the indexList
         Iterator<Integer> indexIter = indexList.iterator();

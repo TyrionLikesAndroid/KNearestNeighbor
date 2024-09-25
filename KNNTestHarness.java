@@ -1,3 +1,5 @@
+import java.util.Random;
+
 public class KNNTestHarness {
 
     public static void main(String[] args)
@@ -20,7 +22,8 @@ public class KNNTestHarness {
 //        data.printDataSet();
 
         // Split up the training and test data
-        data.splitValidationAndTestData(70,false);
+        data.splitValidationAndTestData(70,new Random(1223345466));
+//        data.splitValidationAndTestData(70,null);
 
         System.out.println("\nStarting KNN analysis");
 
